@@ -41,13 +41,7 @@ export default function HomePage() {
 
   const handleLLMResponse = async (response: { content: string }) => {
     try {
-      console.log("=== LLM Response Debug ===");
-      console.log("Response received:", response);
-      console.log("Current pins at start:", pins.length, pins);
-
-      // Try to parse JSON from the LLM response
       const content = response.content;
-      console.log("Content:", content);
 
       let operation: LLMOperation | undefined;
 
@@ -56,7 +50,6 @@ export default function HomePage() {
         const jsonMatch = content.match(/\{[\s\S]*\}/);
         if (jsonMatch) {
           operation = JSON.parse(jsonMatch[0]);
-          console.log("Parsed operation:", operation);
         }
       } catch {
         console.log("No valid JSON found in response");
@@ -68,14 +61,8 @@ export default function HomePage() {
         return;
       }
 
-      console.log("Processing operation:", operation);
-      console.log("Current pins before API call:", pins.length, pins);
-      console.log("Reference point:", referencePoint);
-
       // Handle buffer operation around pins
       if (pins.length > 0 && operation.op === "buffer") {
-        console.log("Creating buffer around pins:", pins);
-
         const response = await fetch("/api/buffer-pins", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -87,8 +74,6 @@ export default function HomePage() {
                 : 10,
           }),
         });
-
-        console.log("Buffer API response status:", response.status);
 
         if (response.ok) {
           const result = await response.json();
@@ -102,8 +87,6 @@ export default function HomePage() {
       }
       // Handle within operation using reference point
       else if (referencePoint && pins.length > 1 && operation.op === "within") {
-        console.log("Finding points within distance of reference point");
-
         const response = await fetch("/api/within", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -116,8 +99,6 @@ export default function HomePage() {
                 : 5,
           }),
         });
-
-        console.log("Within API response status:", response.status);
 
         if (response.ok) {
           const result = await response.json();
@@ -136,8 +117,6 @@ export default function HomePage() {
         pins.length > 1 &&
         operation.op === "nearest"
       ) {
-        console.log("Finding k nearest points to reference point");
-
         const response = await fetch("/api/nearest", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -147,8 +126,6 @@ export default function HomePage() {
             k: typeof operation.params.k === "number" ? operation.params.k : 5,
           }),
         });
-
-        console.log("Nearest API response status:", response.status);
 
         if (response.ok) {
           const result = await response.json();
@@ -194,7 +171,7 @@ export default function HomePage() {
           lastSpatialOp={lastSpatialOp}
         />
       </div>
-      <div className="w-1/3 p-4 overflow-auto">
+      <div className="w-1/3 p-4 flex flex-col h-screen overflow-hidden">
         <ChatInterface
           onResponse={handleLLMResponse}
           pins={pins}

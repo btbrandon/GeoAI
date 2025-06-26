@@ -7,19 +7,7 @@ import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Send, Bot, User } from "lucide-react";
-import { cn, ChatInterfaceProps } from "@/lib/utils";
-
-interface Pin {
-  id: string;
-  longitude: number;
-  latitude: number;
-  coordinates: [number, number];
-}
-
-interface ExtendedChatInterfaceProps extends ChatInterfaceProps {
-  pins: Pin[];
-  referencePoint?: Pin | null;
-}
+import { cn, ExtendedChatInterfaceProps } from "@/lib/utils";
 
 export default function ChatInterface({
   onResponse,
@@ -39,11 +27,7 @@ export default function ChatInterface({
   const lastProcessedMessageId = useRef<string | null>(null);
 
   useEffect(() => {
-    console.log("ChatInterface - All messages:", messages);
     const last = messages[messages.length - 1];
-    console.log("ChatInterface - Last message:", last);
-    console.log("ChatInterface - Last message role:", last?.role);
-    console.log("ChatInterface - Last message content:", last?.content);
 
     // Only process if we have a complete assistant message that we haven't processed yet
     if (
@@ -51,7 +35,6 @@ export default function ChatInterface({
       last.id !== lastProcessedMessageId.current &&
       !isLoading
     ) {
-      console.log("ChatInterface - Calling onResponse with:", last);
       lastProcessedMessageId.current = last.id;
       onResponse({
         id: last.id,
@@ -75,7 +58,7 @@ export default function ChatInterface({
 
   return (
     <div className="flex flex-col h-full bg-background">
-      <ScrollArea ref={scrollAreaRef} className="flex-1">
+      <ScrollArea ref={scrollAreaRef} className="flex-1 overflow-y-auto">
         <div role="log" className="space-y-1 pb-4">
           {messages.map((m) => {
             const isUser = m.role === "user";
@@ -117,11 +100,6 @@ export default function ChatInterface({
               </div>
             );
           })}
-          {isLoading && (
-            <div className="flex items-start gap-3 px-4 py-3">
-              {/* your TypingIndicator here */}
-            </div>
-          )}
         </div>
       </ScrollArea>
 
@@ -135,14 +113,14 @@ export default function ChatInterface({
         )}
         {/* Show reference point status */}
         {referencePoint && (
-          <div className="mb-2 p-2 bg-green-50 rounded text-xs text-green-700">
+          <div className=" p-2 bg-green-50 rounded text-xs text-green-700">
             🎯 Reference point set at ({referencePoint.latitude.toFixed(4)},{" "}
             {referencePoint.longitude.toFixed(4)})
           </div>
         )}
       </div>
 
-      <footer className="border-t p-4">
+      <footer className="border-t py-2">
         <form
           onSubmit={(e) => {
             e.preventDefault();
