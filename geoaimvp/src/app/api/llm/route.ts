@@ -1,36 +1,10 @@
-import { streamText, CoreMessage } from "ai";
+import { streamText } from "ai";
 import { openai } from "@ai-sdk/openai";
-
-interface Pin {
-  id: string;
-  longitude: number;
-  latitude: number;
-  coordinates: [number, number];
-}
-
-interface ReferencePoint {
-  id: string;
-  longitude: number;
-  latitude: number;
-  coordinates: [number, number];
-}
-
-interface LLMRequestBody {
-  messages: CoreMessage[];
-  pins?: Pin[];
-  referencePoint?: ReferencePoint;
-}
+import { LLMRequestBody } from "@/lib/utils";
 
 export async function POST(req: Request) {
   const { messages, pins, referencePoint }: LLMRequestBody = await req.json();
 
-  console.log("LLM API - Received request:", {
-    messages,
-    pins,
-    referencePoint,
-  });
-
-  // Create a system prompt that includes pin information if available
   let systemPrompt = `You are a GeoAI assistant. When a user asks for a spatial operation, respond with a JSON object containing the operation and parameters.
 
   **For any distance parameter, always convert the value to kilometers (km) as a number, regardless of the unit the user provides.**
@@ -106,7 +80,6 @@ export async function POST(req: Request) {
 
   Respond only with the JSON object for the operation, or a clarification question if the unit is ambiguous.`;
 
-  // If pins are available, add them to the context
   if (pins && pins.length > 0) {
     const pinCoordinates = pins
       .map((pin) => `${pin.longitude.toFixed(6)}, ${pin.latitude.toFixed(6)}`)
@@ -114,7 +87,6 @@ export async function POST(req: Request) {
     systemPrompt += `\n\nUser has dropped ${pins.length} pin(s) on the map with coordinates: ${pinCoordinates}. When the user asks for spatial operations like "add a buffer around these features" or "create a buffer around the pins", use these coordinates as the geometry for the operation.\n\nFor buffer operations around pins, respond with: {"op": "buffer", "params": {"distance": 10}} (the distance in kilometers)`;
   }
 
-  // If reference point is available, add it to the context
   if (referencePoint) {
     systemPrompt += `\n\nUser has set a reference point at coordinates: ${referencePoint.longitude.toFixed(
       6
@@ -130,7 +102,6 @@ export async function POST(req: Request) {
       messages,
     });
 
-    console.log("LLM API - Streaming response");
     return result.toDataStreamResponse();
   } catch (err) {
     console.error("LLM error:", err);

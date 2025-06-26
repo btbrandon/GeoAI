@@ -1,19 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDuckDB } from "@/lib/duckdb";
-
-interface Pin {
-  id: string;
-  longitude: number;
-  latitude: number;
-  coordinates: [number, number];
-}
+import { Pin } from "@/lib/utils";
 
 export async function POST(request: NextRequest) {
   try {
     const { pins, distance }: { pins: Pin[]; distance: number } =
       await request.json();
-    console.log("Buffer-pins request:", { pins, distance });
-    console.log("Number of pins:", pins.length);
 
     const db = await getDuckDB();
 
@@ -21,7 +13,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "No pins provided" }, { status: 400 });
     }
 
-    // Create a temporary table with the pins
     const pinValues = pins
       .map(
         (pin, index) =>
@@ -34,10 +25,9 @@ export async function POST(request: NextRequest) {
       SELECT * FROM (VALUES ${pinValues}) AS t(id, geom)
     `);
 
-    // Create buffers around all pins and union them
     const geojson: Record<string, unknown> = await new Promise(
       (resolve, reject) => {
-        const bufferDistance = distance / 111.0; // convert km to degrees approx.
+        const bufferDistance = distance / 111.0;
 
         if (pins.length === 1) {
           db.all(
@@ -53,8 +43,6 @@ export async function POST(request: NextRequest) {
             }
           );
         } else {
-          // For multiple pins, use a recursive approach with ST_Union
-          // First create a table with buffered geometries
           db.run(
             `CREATE TEMP TABLE buffered_pins AS
            SELECT id, ST_Buffer(geom, $1) AS buffered_geom
@@ -67,7 +55,6 @@ export async function POST(request: NextRequest) {
                 return;
               }
 
-              // Now use a recursive CTE to union all geometries
               db.all(
                 `WITH RECURSIVE union_geoms AS (
                 SELECT id, buffered_geom AS result_geom
@@ -99,7 +86,6 @@ export async function POST(request: NextRequest) {
       }
     );
 
-    // Clean up temporary table
     await db.run("DROP TABLE temp_pins");
     if (pins.length > 1) {
       await db.run("DROP TABLE buffered_pins");

@@ -1,19 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDuckDB } from "@/lib/duckdb";
-
-interface Pin {
-  id: string;
-  longitude: number;
-  latitude: number;
-  coordinates: [number, number];
-}
-
-interface ReferencePoint {
-  id: string;
-  longitude: number;
-  latitude: number;
-  coordinates: [number, number];
-}
+import { Pin, ReferencePoint } from "@/lib/utils";
 
 export async function POST(request: NextRequest) {
   try {
@@ -23,7 +10,6 @@ export async function POST(request: NextRequest) {
       distance_km,
     }: { referencePoint: ReferencePoint; pins: Pin[]; distance_km: number } =
       await request.json();
-    console.log("Within request:", { referencePoint, pins, distance_km });
 
     if (!referencePoint || !pins || pins.length === 0) {
       return NextResponse.json(
@@ -34,8 +20,7 @@ export async function POST(request: NextRequest) {
 
     const db = await getDuckDB();
 
-    // Filter out the reference point from the pins (exclude the latest pin)
-    const dataPoints = pins.slice(0, -1); // All pins except the last one (reference point)
+    const dataPoints = pins.slice(0, -1);
 
     if (dataPoints.length === 0) {
       return NextResponse.json(
@@ -44,10 +29,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log("Data points to search:", dataPoints.length);
-    console.log("Reference point:", referencePoint);
-
-    // Create temporary tables
     const dataPointValues = dataPoints
       .map(
         (pin, index) =>
@@ -60,16 +41,14 @@ export async function POST(request: NextRequest) {
       SELECT * FROM (VALUES ${dataPointValues}) AS t(id, geom)
     `);
 
-    // Create reference point
     await db.run(`
       CREATE TEMP TABLE ref_point AS 
       SELECT ST_Point(${referencePoint.longitude}, ${referencePoint.latitude}) AS geom
     `);
 
-    // Find points within the specified distance
     const geojson: Record<string, unknown> = await new Promise(
       (resolve, reject) => {
-        const distanceDegrees = distance_km / 111.0; // Convert km to degrees (approximate)
+        const distanceDegrees = distance_km / 111.0;
 
         db.all(
           `SELECT ST_AsGeoJSON(geom) AS geojson
@@ -85,8 +64,6 @@ export async function POST(request: NextRequest) {
               console.error("DuckDB error:", err);
               reject(err);
             } else {
-              console.log("Found points within distance:", rows.length);
-              // Convert to FeatureCollection format
               const features = rows.map((row) => ({
                 type: "Feature",
                 geometry: JSON.parse(row.geojson),
@@ -103,7 +80,6 @@ export async function POST(request: NextRequest) {
       }
     );
 
-    // Cleanup
     await db.run("DROP TABLE data_points");
     await db.run("DROP TABLE ref_point");
 

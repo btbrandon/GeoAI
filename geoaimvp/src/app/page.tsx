@@ -1,14 +1,9 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import ChatInterface from "@/components/ChatInterface";
-import MapComponent from "@/components/Map";
-import { Pin } from "@/lib/utils";
-
-interface LLMOperation {
-  op: string;
-  params: Record<string, unknown>;
-}
+import ChatInterface from "@/features/ChatInterface";
+import MapComponent from "@/features/Map";
+import { Pin, LLMOperation } from "@/lib/utils";
 
 export default function HomePage() {
   const [pins, setPins] = useState<Pin[]>([]);
@@ -19,7 +14,6 @@ export default function HomePage() {
     { role: "user" | "assistant"; content: string; timestamp: string }[]
   >([]);
 
-  // Update reference point whenever pins change
   useEffect(() => {
     if (pins.length > 0) {
       const latestPin = pins[pins.length - 1];
@@ -29,12 +23,10 @@ export default function HomePage() {
     }
   }, [pins]);
 
-  // Wrapper function to track pin changes
   const handlePinsChange = (newPins: Pin[] | ((prevPins: Pin[]) => Pin[])) => {
     setPins(newPins);
   };
 
-  // Add user message to chatEvents when user submits
   const handleUserMessage = (text: string) => {
     setChatEvents((prev) => [
       ...prev,
@@ -53,7 +45,6 @@ export default function HomePage() {
       let operation: LLMOperation | undefined;
 
       try {
-        // Look for JSON in the response
         const jsonMatch = content.match(/\{[\s\S]*\}/);
         if (jsonMatch) {
           operation = JSON.parse(jsonMatch[0]);
@@ -68,7 +59,6 @@ export default function HomePage() {
         return;
       }
 
-      // Handle buffer operation around pins
       if (pins.length > 0 && operation.op === "buffer") {
         const response = await fetch("/api/buffer-pins", {
           method: "POST",
@@ -98,9 +88,11 @@ export default function HomePage() {
           const errorText = await response.text();
           console.error("Buffer API error:", errorText);
         }
-      }
-      // Handle within operation using reference point
-      else if (referencePoint && pins.length > 1 && operation.op === "within") {
+      } else if (
+        referencePoint &&
+        pins.length > 1 &&
+        operation.op === "within"
+      ) {
         const response = await fetch("/api/within", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -146,9 +138,7 @@ export default function HomePage() {
           const errorText = await response.text();
           console.error("Within API error:", errorText);
         }
-      }
-      // Handle nearest operation using reference point and pins
-      else if (
+      } else if (
         referencePoint &&
         pins.length > 1 &&
         operation.op === "nearest"
@@ -195,9 +185,7 @@ export default function HomePage() {
           const errorText = await response.text();
           console.error("Nearest API error:", errorText);
         }
-      }
-      // Handle other operations
-      else {
+      } else {
         const apiEndpoint = `/api/${operation.op}`;
         const response = await fetch(apiEndpoint, {
           method: "POST",

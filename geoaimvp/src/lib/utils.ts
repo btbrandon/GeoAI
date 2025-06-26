@@ -1,3 +1,4 @@
+import { CoreMessage } from "ai";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 
@@ -36,4 +37,22 @@ export interface MapComponentProps {
   setPins: React.Dispatch<React.SetStateAction<Pin[]>>;
   mapData?: any;
   lastSpatialOp?: string | null;
+}
+
+export interface ReferencePoint {
+  id: string;
+  longitude: number;
+  latitude: number;
+  coordinates: [number, number];
+}
+
+export interface LLMRequestBody {
+  messages: CoreMessage[];
+  pins?: Pin[];
+  referencePoint?: ReferencePoint;
+}
+
+export interface LLMOperation {
+  op: string;
+  params: Record<string, unknown>;
 }

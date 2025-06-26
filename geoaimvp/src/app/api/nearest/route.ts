@@ -1,19 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDuckDB } from "@/lib/duckdb";
-
-interface Pin {
-  id: string;
-  longitude: number;
-  latitude: number;
-  coordinates: [number, number];
-}
-
-interface ReferencePoint {
-  id: string;
-  longitude: number;
-  latitude: number;
-  coordinates: [number, number];
-}
+import { Pin, ReferencePoint } from "@/lib/utils";
 
 export async function POST(request: NextRequest) {
   try {
@@ -36,7 +23,6 @@ export async function POST(request: NextRequest) {
 
     const db = await getDuckDB();
 
-    // Exclude the reference point from the pins (as in within API)
     const dataPoints = pins.slice(0, -1);
 
     if (dataPoints.length === 0) {
@@ -46,7 +32,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Create temporary table for pins
     const dataPointValues = dataPoints
       .map(
         (pin, index) =>
@@ -59,13 +44,11 @@ export async function POST(request: NextRequest) {
       SELECT * FROM (VALUES ${dataPointValues}) AS t(id, geom)
     `);
 
-    // Create reference point table
     await db.run(`
       CREATE TEMP TABLE ref_point AS 
       SELECT ST_Point(${referencePoint.longitude}, ${referencePoint.latitude}) AS geom
     `);
 
-    // Query for k nearest points
     const rows = await new Promise<{ geojson: string }[]>((resolve, reject) => {
       db.all(
         `SELECT ST_AsGeoJSON(geom) AS geojson
@@ -83,7 +66,6 @@ export async function POST(request: NextRequest) {
       );
     });
 
-    // Cleanup
     await db.run("DROP TABLE data_points");
     await db.run("DROP TABLE ref_point");
 
