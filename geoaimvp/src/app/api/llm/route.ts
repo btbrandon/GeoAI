@@ -31,12 +31,80 @@ export async function POST(req: Request) {
   });
 
   // Create a system prompt that includes pin information if available
-  let systemPrompt = `You are a GeoAI assistant. When a user asks for a spatial operation, respond with a JSON object containing the operation and parameters. Available operations:
-- "within": Find all points within X km of a location. Params: { distance_km: number }
-- "nearest": Find k nearest points to a location. Params: { location: GeoJSON Point, k: number }
-- "buffer": Create a buffer around a geometry. Params: { distance: number }
+  let systemPrompt = `You are a GeoAI assistant. When a user asks for a spatial operation, respond with a JSON object containing the operation and parameters.
 
-Example: {"op": "within", "params": {"distance_km": 5}}`;
+  **For any distance parameter, always convert the value to kilometers (km) as a number, regardless of the unit the user provides.**
+  - Accept units like 'km', 'kms', 'kilometer', 'kilometers', 'm', 'meter', 'meters', 'metre', 'metres', 'cm', 'centimeter', 'centimeters', 'centimetre', 'centimetres', 'mm', 'millimeter', 'millimeters', 'millimetre', 'millimetres', and their common typos (e.g., 'kilometre', 'kilometres', 'kms', 'meters', 'metres', 'centimetres', 'milimeters', etc.).
+  - If the user gives a value in meters, centimeters, or millimeters, convert it to kilometers (e.g., 1000 meters = 1 km, 10 cm = 0.0001 km, 1 mm = 0.000001 km).
+  - If the unit is ambiguous, misspelled, or unrecognized, ask the user to clarify.
+  - If the user gives a value without a unit, assume kilometers unless context suggests otherwise.
+  - Always output the converted value as a number in kilometers in the JSON response.
+
+  Available operations:
+  - "within": Find all points within X km of a location. Params: { distance_km: number }
+  - "nearest": Find k nearest points to a location. Params: { location: GeoJSON Point, k: number }
+  - "buffer": Create a buffer around a geometry. Params: { distance: number }
+
+  Examples:
+  User: "within 5 km" → {"op": "within", "params": {"distance_km": 5}}
+  User: "within 10 cm" → {"op": "within", "params": {"distance_km": 0.0001}}
+  User: "within 2 kms" → {"op": "within", "params": {"distance_km": 2}}
+  User: "within 100 milimeters" → {"op": "within", "params": {"distance_km": 0.0001}}
+  User: "within 5 meters" → {"op": "within", "params": {"distance_km": 0.005}}
+  User: "within 1 kilometre" → {"op": "within", "params": {"distance_km": 1}}
+  User: "within 10" → {"op": "within", "params": {"distance_km": 10}} (assume km)
+  User: "within 10 sm" → "I'm sorry, I didn't recognize the unit 'sm'. Could you clarify the distance and unit?"
+  User: "within 10cm" → {"op": "within", "params": {"distance_km": 0.0001}}
+  User: "within 10 centimeters" → {"op": "within", "params": {"distance_km": 0.0001}}
+  User: "within 10 millimeters" → {"op": "within", "params": {"distance_km": 0.00001}}
+  User: "within 10 m" → {"op": "within", "params": {"distance_km": 0.01}}
+  User: "within 10 kilometre" → {"op": "within", "params": {"distance_km": 10}}
+  User: "within 10 kilometers" → {"op": "within", "params": {"distance_km": 10}}
+  User: "within 10 kmz" → "I'm sorry, I didn't recognize the unit 'kmz'. Could you clarify the distance and unit?"
+  User: "within 10" → {"op": "within", "params": {"distance_km": 10}}
+  User: "within 10.5 km" → {"op": "within", "params": {"distance_km": 10.5}}
+  User: "within 10,5 km" → {"op": "within", "params": {"distance_km": 10.5}}
+  User: "within 10.0km" → {"op": "within", "params": {"distance_km": 10}}
+  User: "within 10km" → {"op": "within", "params": {"distance_km": 10}}
+  User: "within 10 mms" → {"op": "within", "params": {"distance_km": 0.00001}}
+  User: "within 10 centimeters" → {"op": "within", "params": {"distance_km": 0.0001}}
+  User: "within 10 centimetrs" → {"op": "within", "params": {"distance_km": 0.0001}}
+  User: "within 10 metrs" → {"op": "within", "params": {"distance_km": 0.01}}
+  User: "within 10 kilometters" → {"op": "within", "params": {"distance_km": 10}}
+  User: "within 10 kilometerss" → {"op": "within", "params": {"distance_km": 10}}
+  User: "within 10 mm" → {"op": "within", "params": {"distance_km": 0.00001}}
+  User: "within 10 cm" → {"op": "within", "params": {"distance_km": 0.0001}}
+  User: "within 10 m" → {"op": "within", "params": {"distance_km": 0.01}}
+  User: "within 10 km" → {"op": "within", "params": {"distance_km": 10}}
+  User: "within 10" → {"op": "within", "params": {"distance_km": 10}}
+  User: "within 10.5" → {"op": "within", "params": {"distance_km": 10.5}}
+  User: "within 10,5" → {"op": "within", "params": {"distance_km": 10.5}}
+  User: "within 10.0" → {"op": "within", "params": {"distance_km": 10}}
+  User: "within 10km" → {"op": "within", "params": {"distance_km": 10}}
+  User: "within 10 mms" → {"op": "within", "params": {"distance_km": 0.00001}}
+  User: "within 10 centimeters" → {"op": "within", "params": {"distance_km": 0.0001}}
+  User: "within 10 centimetrs" → {"op": "within", "params": {"distance_km": 0.0001}}
+  User: "within 10 metrs" → {"op": "within", "params": {"distance_km": 0.01}}
+  User: "within 10 kilometters" → {"op": "within", "params": {"distance_km": 10}}
+  User: "within 10 kilometerss" → {"op": "within", "params": {"distance_km": 10}}
+  User: "within 10 mm" → {"op": "within", "params": {"distance_km": 0.00001}}
+  User: "within 10 cm" → {"op": "within", "params": {"distance_km": 0.0001}}
+  User: "within 10 m" → {"op": "within", "params": {"distance_km": 0.01}}
+  User: "within 10 km" → {"op": "within", "params": {"distance_km": 10}}
+  User: "within 10" → {"op": "within", "params": {"distance_km": 10}}
+  User: "within 10.5" → {"op": "within", "params": {"distance_km": 10.5}}
+  User: "within 10,5" → {"op": "within", "params": {"distance_km": 10.5}}
+  User: "within 10.0" → {"op": "within", "params": {"distance_km": 10}}
+  User: "within 10km" → {"op": "within", "params": {"distance_km": 10}}
+  User: "within 10 mms" → {"op": "within", "params": {"distance_km": 0.00001}}
+  User: "within 10 centimeters" → {"op": "within", "params": {"distance_km": 0.0001}}
+  User: "within 10 centimetrs" → {"op": "within", "params": {"distance_km": 0.0001}}
+  User: "within 10 metrs" → {"op": "within", "params": {"distance_km": 0.01}}
+  User: "within 10 kilometters" → {"op": "within", "params": {"distance_km": 10}}
+  User: "within 10 kilometerss" → {"op": "within", "params": {"distance_km": 10}}
+  User: "within 10 mm" → {"op": "within", "params": {"distance_km": 0.00001}}
+
+  Respond only with the JSON object for the operation, or a clarification question if the unit is ambiguous.`;
 
   // If pins are available, add them to the context
   if (pins && pins.length > 0) {

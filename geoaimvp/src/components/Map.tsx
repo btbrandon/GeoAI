@@ -371,7 +371,6 @@ export default function MapComponent({
           pitch: 0,
           bearing: 0,
         }}
-        controller
         layers={layers}
         onClick={handleMapClick}
       />
