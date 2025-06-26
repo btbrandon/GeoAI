@@ -10,6 +10,7 @@ export default function MapComponent({
   pins,
   setPins,
   mapData,
+  lastSpatialOp,
 }: MapComponentProps) {
   console.log("Map component render - pins:", pins, "mapData:", mapData);
 
@@ -78,51 +79,61 @@ export default function MapComponent({
   const withinPointIds = hasWithinResults
     ? new Set(
         mapData.features
-          .map((feature: { type: string; coordinates?: [number, number] }) => {
-            // Extract pin ID from the feature properties or coordinates
-            const coords = feature.coordinates;
-            console.log(
-              "Processing within feature:",
-              feature,
-              "coords:",
-              coords
-            );
-
-            if (!coords) {
-              console.warn("Feature missing coordinates:", feature);
-              return undefined;
-            }
-
-            if (!Array.isArray(coords) || coords.length < 2) {
-              console.warn(
-                "Feature has invalid coordinates format:",
+          .map(
+            (feature: {
+              type: string;
+              geometry?: { coordinates?: [number, number] };
+              coordinates?: [number, number];
+            }) => {
+              // Extract pin ID from the feature geometry coordinates or directly if geometry object
+              const coords =
+                feature.geometry?.coordinates ||
+                (feature.type === "Point" && Array.isArray(feature.coordinates)
+                  ? feature.coordinates
+                  : undefined);
+              console.log(
+                "Processing within feature:",
                 feature,
                 "coords:",
                 coords
               );
-              return undefined;
-            }
 
-            // Find matching pin by coordinates
-            const matchingPin = pins.find(
-              (pin) =>
-                Math.abs(pin.longitude - coords[0]) < 0.000001 &&
-                Math.abs(pin.latitude - coords[1]) < 0.000001
-            );
+              if (!coords) {
+                console.warn("Feature missing coordinates:", feature);
+                return undefined;
+              }
 
-            if (matchingPin) {
-              console.log(
-                "Found matching pin:",
-                matchingPin.id,
-                "for coords:",
-                coords
+              if (!Array.isArray(coords) || coords.length < 2) {
+                console.warn(
+                  "Feature has invalid coordinates format:",
+                  feature,
+                  "coords:",
+                  coords
+                );
+                return undefined;
+              }
+
+              // Find matching pin by coordinates
+              const matchingPin = pins.find(
+                (pin) =>
+                  Math.abs(pin.longitude - coords[0]) < 0.000001 &&
+                  Math.abs(pin.latitude - coords[1]) < 0.000001
               );
-              return matchingPin.id;
-            } else {
-              console.warn("No matching pin found for coords:", coords);
-              return undefined;
+
+              if (matchingPin) {
+                console.log(
+                  "Found matching pin:",
+                  matchingPin.id,
+                  "for coords:",
+                  coords
+                );
+                return matchingPin.id;
+              } else {
+                console.warn("No matching pin found for coords:", coords);
+                return undefined;
+              }
             }
-          })
+          )
           .filter(Boolean)
       )
     : new Set();
@@ -210,10 +221,12 @@ export default function MapComponent({
     ? new GeoJsonLayer({
         id: "reference-point-layer",
         data: referencePointGeoJSON,
-        stroked: false,
+        stroked: true,
         filled: true,
         pointRadiusMinPixels: 10,
         getFillColor: [255, 0, 0, 200], // Red
+        getLineColor: [0, 0, 0, 255], // Black outline
+        getLineWidth: 2, // Outline thickness
         pickable: true,
         onClick: (info) => {
           if (info.object) {
@@ -295,7 +308,7 @@ export default function MapComponent({
           id: "default-pins-layer",
           data: {
             type: "FeatureCollection",
-            features: pins.map((pin) => ({
+            features: pins.map((pin, idx) => ({
               type: "Feature",
               geometry: {
                 type: "Point",
@@ -305,13 +318,17 @@ export default function MapComponent({
                 id: pin.id,
                 longitude: pin.longitude,
                 latitude: pin.latitude,
+                isReference: idx === pins.length - 1, // last pin is reference
               },
             })),
           },
           stroked: false,
           filled: true,
           pointRadiusMinPixels: 8,
-          getFillColor: [255, 0, 0, 200], // Red
+          getFillColor: (d) =>
+            d.properties.isReference
+              ? [255, 0, 0, 200] // Red for reference point
+              : [128, 128, 128, 150], // Gray for others
           pickable: true,
           onClick: (info) => {
             if (info.object) {
@@ -323,7 +340,8 @@ export default function MapComponent({
                   pin.properties.id
                 }\nCoordinates: ${pin.properties.longitude.toFixed(
                   6
-                )}, ${pin.properties.latitude.toFixed(6)}`
+                )}, ${pin.properties.latitude.toFixed(6)}
+                `
               );
             }
           },
@@ -481,7 +499,11 @@ export default function MapComponent({
                     marginRight: "5px",
                   }}
                 ></div>
-                Within Distance ({withinPointIds.size})
+                {lastSpatialOp === "nearest"
+                  ? `Nearest Neighbour${
+                      withinPointIds.size === 1 ? "" : "s"
+                    } (${withinPointIds.size})`
+                  : `Within Distance (${withinPointIds.size})`}
               </div>
               <div
                 style={{

@@ -30,4 +30,5 @@ export interface MapComponentProps {
   pins: Pin[];
   setPins: React.Dispatch<React.SetStateAction<Pin[]>>;
   mapData?: any;
+  lastSpatialOp?: string | null;
 }

@@ -14,6 +14,7 @@ export default function HomePage() {
   const [pins, setPins] = useState<Pin[]>([]);
   const [mapData, setMapData] = useState<Record<string, unknown> | null>(null);
   const [referencePoint, setReferencePoint] = useState<Pin | null>(null);
+  const [lastSpatialOp, setLastSpatialOp] = useState<string | null>(null);
 
   // Update reference point whenever pins change
   useEffect(() => {
@@ -93,6 +94,7 @@ export default function HomePage() {
           const result = await response.json();
           console.log("Buffer result:", result);
           setMapData(result);
+          setLastSpatialOp("buffer");
         } else {
           const errorText = await response.text();
           console.error("Buffer API error:", errorText);
@@ -122,9 +124,41 @@ export default function HomePage() {
           console.log("Within result:", result);
           setMapData(result);
           console.log("MapData set, current pins:", pins.length, pins);
+          setLastSpatialOp("within");
         } else {
           const errorText = await response.text();
           console.error("Within API error:", errorText);
+        }
+      }
+      // Handle nearest operation using reference point and pins
+      else if (
+        referencePoint &&
+        pins.length > 1 &&
+        operation.op === "nearest"
+      ) {
+        console.log("Finding k nearest points to reference point");
+
+        const response = await fetch("/api/nearest", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            referencePoint: referencePoint,
+            pins: pins,
+            k: typeof operation.params.k === "number" ? operation.params.k : 5,
+          }),
+        });
+
+        console.log("Nearest API response status:", response.status);
+
+        if (response.ok) {
+          const result = await response.json();
+          console.log("Nearest result:", result);
+          setMapData(result);
+          console.log("MapData set, current pins:", pins.length, pins);
+          setLastSpatialOp("nearest");
+        } else {
+          const errorText = await response.text();
+          console.error("Nearest API error:", errorText);
         }
       }
       // Handle other operations
@@ -142,6 +176,7 @@ export default function HomePage() {
           const result = await response.json();
           setMapData(result);
           console.log(`${operation.op} result:`, result);
+          setLastSpatialOp(operation.op);
         }
       }
     } catch (error) {
@@ -156,6 +191,7 @@ export default function HomePage() {
           pins={pins}
           setPins={handlePinsChange}
           mapData={mapData}
+          lastSpatialOp={lastSpatialOp}
         />
       </div>
       <div className="w-1/3 p-4 overflow-auto">

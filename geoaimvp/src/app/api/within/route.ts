@@ -87,7 +87,11 @@ export async function POST(request: NextRequest) {
             } else {
               console.log("Found points within distance:", rows.length);
               // Convert to FeatureCollection format
-              const features = rows.map((row) => JSON.parse(row.geojson));
+              const features = rows.map((row) => ({
+                type: "Feature",
+                geometry: JSON.parse(row.geojson),
+                properties: {},
+              }));
               const featureCollection = {
                 type: "FeatureCollection",
                 features: features,
