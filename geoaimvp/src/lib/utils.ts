@@ -56,3 +56,8 @@ export interface LLMOperation {
   op: string;
   params: Record<string, unknown>;
 }
+
+export interface ChatInterfacePropsWithUserMessage
+  extends ExtendedChatInterfaceProps {
+  onUserMessage?: (text: string) => void;
+}

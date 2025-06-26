@@ -7,11 +7,7 @@ import { Input } from "@/components/input";
 import { ScrollArea } from "@/components/scroll-area";
 import { Avatar, AvatarFallback } from "@/components/avatar";
 import { Send, Bot, User } from "lucide-react";
-import { cn, ExtendedChatInterfaceProps } from "@/lib/utils";
-
-interface ChatInterfacePropsWithUserMessage extends ExtendedChatInterfaceProps {
-  onUserMessage?: (text: string) => void;
-}
+import { cn, ChatInterfacePropsWithUserMessage } from "@/lib/utils";
 
 export default function ChatInterface({
   onResponse,
