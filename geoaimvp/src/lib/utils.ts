@@ -24,6 +24,11 @@ export interface Pin {
 export interface ExtendedChatInterfaceProps extends ChatInterfaceProps {
   pins: Pin[];
   referencePoint?: Pin | null;
+  chatEvents?: {
+    role: "user" | "assistant";
+    content: string;
+    timestamp: string;
+  }[];
 }
 
 export interface MapComponentProps {

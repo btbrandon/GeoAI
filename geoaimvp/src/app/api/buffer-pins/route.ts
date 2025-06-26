@@ -37,8 +37,6 @@ export async function POST(request: NextRequest) {
     // Create buffers around all pins and union them
     const geojson: Record<string, unknown> = await new Promise(
       (resolve, reject) => {
-        console.log("Processing buffer for", pins.length, "pin(s)");
-
         const bufferDistance = distance / 111.0; // convert km to degrees approx.
 
         if (pins.length === 1) {

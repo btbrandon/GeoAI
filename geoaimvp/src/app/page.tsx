@@ -15,28 +15,35 @@ export default function HomePage() {
   const [mapData, setMapData] = useState<Record<string, unknown> | null>(null);
   const [referencePoint, setReferencePoint] = useState<Pin | null>(null);
   const [lastSpatialOp, setLastSpatialOp] = useState<string | null>(null);
+  const [chatEvents, setChatEvents] = useState<
+    { role: "user" | "assistant"; content: string; timestamp: string }[]
+  >([]);
 
   // Update reference point whenever pins change
   useEffect(() => {
-    console.log("Pins state changed:", pins.length, "pins");
     if (pins.length > 0) {
       const latestPin = pins[pins.length - 1];
       setReferencePoint(latestPin);
-      console.log("Updated reference point:", latestPin);
     } else {
       setReferencePoint(null);
-      console.log("Cleared reference point");
     }
   }, [pins]);
 
   // Wrapper function to track pin changes
   const handlePinsChange = (newPins: Pin[] | ((prevPins: Pin[]) => Pin[])) => {
-    console.log(
-      "handlePinsChange called with:",
-      typeof newPins === "function" ? "function" : newPins.length,
-      "items"
-    );
     setPins(newPins);
+  };
+
+  // Add user message to chatEvents when user submits
+  const handleUserMessage = (text: string) => {
+    setChatEvents((prev) => [
+      ...prev,
+      {
+        role: "user",
+        content: text,
+        timestamp: new Date().toISOString(),
+      },
+    ]);
   };
 
   const handleLLMResponse = async (response: { content: string }) => {
@@ -77,9 +84,16 @@ export default function HomePage() {
 
         if (response.ok) {
           const result = await response.json();
-          console.log("Buffer result:", result);
           setMapData(result);
           setLastSpatialOp("buffer");
+          setChatEvents((prev) => [
+            ...prev,
+            {
+              role: "assistant",
+              content: `✅ Buffer created around ${pins.length} pin(s) with a distance of ${operation.params.distance} km.`,
+              timestamp: new Date().toISOString(),
+            },
+          ]);
         } else {
           const errorText = await response.text();
           console.error("Buffer API error:", errorText);
@@ -102,10 +116,32 @@ export default function HomePage() {
 
         if (response.ok) {
           const result = await response.json();
-          console.log("Within result:", result);
           setMapData(result);
-          console.log("MapData set, current pins:", pins.length, pins);
           setLastSpatialOp("within");
+          const matched = result.features || [];
+          const matchedPins = pins.filter((pin) =>
+            matched.some(
+              (f: any) =>
+                f.geometry?.coordinates &&
+                Math.abs(f.geometry.coordinates[0] - pin.longitude) <
+                  0.000001 &&
+                Math.abs(f.geometry.coordinates[1] - pin.latitude) < 0.000001
+            )
+          );
+          const pinList = matchedPins.map(
+            (p) =>
+              `• ${p.id}: (${p.longitude.toFixed(4)}, ${p.latitude.toFixed(4)})`
+          );
+          setChatEvents((prev) => [
+            ...prev,
+            {
+              role: "assistant",
+              content: `✅ Found ${matchedPins.length} point(s) within ${
+                operation.params.distance_km
+              }km:\n${pinList.join("\n")}`,
+              timestamp: new Date().toISOString(),
+            },
+          ]);
         } else {
           const errorText = await response.text();
           console.error("Within API error:", errorText);
@@ -129,10 +165,32 @@ export default function HomePage() {
 
         if (response.ok) {
           const result = await response.json();
-          console.log("Nearest result:", result);
           setMapData(result);
-          console.log("MapData set, current pins:", pins.length, pins);
           setLastSpatialOp("nearest");
+          const matched = result.features || [];
+          const matchedPins = pins.filter((pin) =>
+            matched.some(
+              (f: any) =>
+                f.geometry?.coordinates &&
+                Math.abs(f.geometry.coordinates[0] - pin.longitude) <
+                  0.000001 &&
+                Math.abs(f.geometry.coordinates[1] - pin.latitude) < 0.000001
+            )
+          );
+          const pinList = matchedPins.map(
+            (p) =>
+              `• ${p.id}: (${p.longitude.toFixed(4)}, ${p.latitude.toFixed(4)})`
+          );
+          setChatEvents((prev) => [
+            ...prev,
+            {
+              role: "assistant",
+              content: `✅ Found ${
+                matchedPins.length
+              } nearest point(s):\n${pinList.join("\n")}`,
+              timestamp: new Date().toISOString(),
+            },
+          ]);
         } else {
           const errorText = await response.text();
           console.error("Nearest API error:", errorText);
@@ -140,8 +198,6 @@ export default function HomePage() {
       }
       // Handle other operations
       else {
-        console.log("No suitable data available or not a supported operation");
-
         const apiEndpoint = `/api/${operation.op}`;
         const response = await fetch(apiEndpoint, {
           method: "POST",
@@ -152,7 +208,6 @@ export default function HomePage() {
         if (response.ok) {
           const result = await response.json();
           setMapData(result);
-          console.log(`${operation.op} result:`, result);
           setLastSpatialOp(operation.op);
         }
       }
@@ -174,8 +229,10 @@ export default function HomePage() {
       <div className="w-1/3 p-4 flex flex-col h-screen overflow-hidden">
         <ChatInterface
           onResponse={handleLLMResponse}
+          onUserMessage={handleUserMessage}
           pins={pins}
           referencePoint={referencePoint}
+          chatEvents={chatEvents}
         />
       </div>
     </div>

@@ -12,22 +12,13 @@ export default function MapComponent({
   mapData,
   lastSpatialOp,
 }: MapComponentProps) {
-  console.log("Map component render - pins:", pins, "mapData:", mapData);
-
   const deleteAllPins = () => {
     setPins([]);
-    console.log("All pins deleted");
   };
 
   const undoLatestPin = () => {
     if (pins.length > 0) {
-      const removedPin = pins[pins.length - 1];
       setPins((prev) => prev.slice(0, -1));
-      console.log(
-        `Undid pin: ${removedPin.id} at ${removedPin.longitude.toFixed(
-          6
-        )}, ${removedPin.latitude.toFixed(6)}`
-      );
     }
   };
 
@@ -68,7 +59,7 @@ export default function MapComponent({
     },
   });
 
-  // Determine if we have "within" query results
+  // Determine if we have "within" or "nearest" query results
   const hasWithinResults =
     mapData &&
     mapData.type === "FeatureCollection" &&
@@ -91,12 +82,6 @@ export default function MapComponent({
                 (feature.type === "Point" && Array.isArray(feature.coordinates)
                   ? feature.coordinates
                   : undefined);
-              console.log(
-                "Processing within feature:",
-                feature,
-                "coords:",
-                coords
-              );
 
               if (!coords) {
                 console.warn("Feature missing coordinates:", feature);
@@ -121,12 +106,6 @@ export default function MapComponent({
               );
 
               if (matchingPin) {
-                console.log(
-                  "Found matching pin:",
-                  matchingPin.id,
-                  "for coords:",
-                  coords
-                );
                 return matchingPin.id;
               } else {
                 console.warn("No matching pin found for coords:", coords);
@@ -137,8 +116,6 @@ export default function MapComponent({
           .filter(Boolean)
       )
     : new Set();
-
-  console.log("Points within distance:", withinPointIds);
 
   // Create separate GeoJSON for different pin types
   const referencePoint = pins.length > 0 ? pins[pins.length - 1] : null;
@@ -224,9 +201,9 @@ export default function MapComponent({
         stroked: true,
         filled: true,
         pointRadiusMinPixels: 10,
-        getFillColor: [255, 0, 0, 200], // Red
-        getLineColor: [0, 0, 0, 255], // Black outline
-        getLineWidth: 2, // Outline thickness
+        getFillColor: [255, 0, 0, 200],
+        getLineColor: [0, 0, 0, 255],
+        getLineWidth: 2,
         pickable: true,
         onClick: (info) => {
           if (info.object) {
@@ -254,7 +231,7 @@ export default function MapComponent({
           stroked: false,
           filled: true,
           pointRadiusMinPixels: 8,
-          getFillColor: [0, 255, 0, 200], // Green
+          getFillColor: [0, 255, 0, 200],
           pickable: true,
           onClick: (info) => {
             if (info.object) {
@@ -282,7 +259,7 @@ export default function MapComponent({
           stroked: false,
           filled: true,
           pointRadiusMinPixels: 6,
-          getFillColor: [128, 128, 128, 150], // Gray
+          getFillColor: [128, 128, 128, 150],
           pickable: true,
           onClick: (info) => {
             if (info.object) {
@@ -318,7 +295,7 @@ export default function MapComponent({
                 id: pin.id,
                 longitude: pin.longitude,
                 latitude: pin.latitude,
-                isReference: idx === pins.length - 1, // last pin is reference
+                isReference: idx === pins.length - 1,
               },
             })),
           },
@@ -326,9 +303,7 @@ export default function MapComponent({
           filled: true,
           pointRadiusMinPixels: 8,
           getFillColor: (d) =>
-            d.properties.isReference
-              ? [255, 0, 0, 200] // Red for reference point
-              : [128, 128, 128, 150], // Gray for others
+            d.properties.isReference ? [255, 0, 0, 200] : [128, 128, 128, 150],
           pickable: true,
           onClick: (info) => {
             if (info.object) {
@@ -357,19 +332,11 @@ export default function MapComponent({
           stroked: true,
           filled: true,
           lineWidthMinPixels: 2,
-          getFillColor: [0, 100, 255, 100], // Blue with transparency
-          getLineColor: [0, 100, 255, 255], // Solid blue
+          getFillColor: [0, 100, 255, 100],
+          getLineColor: [0, 100, 255, 255],
           pickable: true,
         })
       : null;
-
-  console.log("Map layers created:", {
-    referencePointLayer: !!referencePointLayer,
-    withinPointsLayer: !!withinPointsLayer,
-    outsidePointsLayer: !!outsidePointsLayer,
-    defaultPinsLayer: !!defaultPinsLayer,
-    mapDataLayer: !!mapDataLayer,
-  });
 
   const handleMapClick = (info: { coordinate?: number[] }) => {
     if (info.coordinate && info.coordinate.length >= 2) {

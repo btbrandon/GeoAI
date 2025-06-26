@@ -9,11 +9,17 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Send, Bot, User } from "lucide-react";
 import { cn, ExtendedChatInterfaceProps } from "@/lib/utils";
 
+interface ChatInterfacePropsWithUserMessage extends ExtendedChatInterfaceProps {
+  onUserMessage?: (text: string) => void;
+}
+
 export default function ChatInterface({
   onResponse,
   pins,
   referencePoint,
-}: ExtendedChatInterfaceProps) {
+  chatEvents = [],
+  onUserMessage,
+}: ChatInterfacePropsWithUserMessage) {
   const { messages, input, handleInputChange, handleSubmit, isLoading } =
     useChat({
       api: "/api/llm",
@@ -42,10 +48,6 @@ export default function ChatInterface({
         role: "assistant",
         timestamp: new Date().toISOString(),
       });
-    } else {
-      console.log(
-        "ChatInterface - Skipping onResponse (already processed or still loading)"
-      );
     }
   }, [messages, onResponse, isLoading]);
 
@@ -60,14 +62,14 @@ export default function ChatInterface({
     <div className="flex flex-col h-full bg-background">
       <ScrollArea ref={scrollAreaRef} className="flex-1 overflow-y-auto">
         <div role="log" className="space-y-1 pb-4">
-          {messages.map((m) => {
-            const isUser = m.role === "user";
+          {chatEvents.map((evt, idx) => {
+            const isUser = evt.role === "user";
             return (
               <div
-                key={m.id}
+                key={idx}
                 className={cn(
                   "flex items-start gap-3 px-4 py-3",
-                  isUser && "flex-row-reverse"
+                  isUser ? "flex-row-reverse" : undefined
                 )}
               >
                 <Avatar className="h-8 w-8 shrink-0">
@@ -89,9 +91,9 @@ export default function ChatInterface({
                       : "bg-muted text-muted-foreground"
                   )}
                 >
-                  {m.content}
+                  {evt.content}
                   <time className="block text-xs mt-1 opacity-70">
-                    {new Date().toLocaleTimeString([], {
+                    {new Date(evt.timestamp).toLocaleTimeString([], {
                       hour: "2-digit",
                       minute: "2-digit",
                     })}
@@ -124,6 +126,7 @@ export default function ChatInterface({
         <form
           onSubmit={(e) => {
             e.preventDefault();
+            if (onUserMessage) onUserMessage(input);
             handleSubmit();
           }}
           className="flex items-end gap-2"
