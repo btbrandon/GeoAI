@@ -78,18 +78,50 @@ export default function MapComponent({
   const withinPointIds = hasWithinResults
     ? new Set(
         mapData.features
-          .map((feature: { geometry?: { coordinates?: [number, number] } }) => {
+          .map((feature: { type: string; coordinates?: [number, number] }) => {
             // Extract pin ID from the feature properties or coordinates
-            const coords = feature.geometry?.coordinates;
-            if (!coords || coords.length < 2) {
-              console.warn("Feature missing valid coordinates:", feature);
+            const coords = feature.coordinates;
+            console.log(
+              "Processing within feature:",
+              feature,
+              "coords:",
+              coords
+            );
+
+            if (!coords) {
+              console.warn("Feature missing coordinates:", feature);
               return undefined;
             }
-            return pins.find(
+
+            if (!Array.isArray(coords) || coords.length < 2) {
+              console.warn(
+                "Feature has invalid coordinates format:",
+                feature,
+                "coords:",
+                coords
+              );
+              return undefined;
+            }
+
+            // Find matching pin by coordinates
+            const matchingPin = pins.find(
               (pin) =>
                 Math.abs(pin.longitude - coords[0]) < 0.000001 &&
                 Math.abs(pin.latitude - coords[1]) < 0.000001
-            )?.id;
+            );
+
+            if (matchingPin) {
+              console.log(
+                "Found matching pin:",
+                matchingPin.id,
+                "for coords:",
+                coords
+              );
+              return matchingPin.id;
+            } else {
+              console.warn("No matching pin found for coords:", coords);
+              return undefined;
+            }
           })
           .filter(Boolean)
       )
@@ -173,7 +205,7 @@ export default function MapComponent({
       })),
   };
 
-  // Reference point layer (green)
+  // Reference point layer (red)
   const referencePointLayer = referencePoint
     ? new GeoJsonLayer({
         id: "reference-point-layer",
@@ -181,7 +213,7 @@ export default function MapComponent({
         stroked: false,
         filled: true,
         pointRadiusMinPixels: 10,
-        getFillColor: [0, 255, 0, 200], // Green
+        getFillColor: [255, 0, 0, 200], // Red
         pickable: true,
         onClick: (info) => {
           if (info.object) {
@@ -200,7 +232,7 @@ export default function MapComponent({
       })
     : null;
 
-  // Within points layer (yellow)
+  // Within points layer (green)
   const withinPointsLayer =
     withinPointsGeoJSON.features.length > 0
       ? new GeoJsonLayer({
@@ -209,7 +241,7 @@ export default function MapComponent({
           stroked: false,
           filled: true,
           pointRadiusMinPixels: 8,
-          getFillColor: [255, 255, 0, 200], // Yellow
+          getFillColor: [0, 255, 0, 200], // Green
           pickable: true,
           onClick: (info) => {
             if (info.object) {
@@ -426,7 +458,7 @@ export default function MapComponent({
                   style={{
                     width: "8px",
                     height: "8px",
-                    backgroundColor: "#00ff00",
+                    backgroundColor: "#ff0000",
                     borderRadius: "50%",
                     marginRight: "5px",
                   }}
@@ -444,7 +476,7 @@ export default function MapComponent({
                   style={{
                     width: "8px",
                     height: "8px",
-                    backgroundColor: "#ffff00",
+                    backgroundColor: "#00ff00",
                     borderRadius: "50%",
                     marginRight: "5px",
                   }}
