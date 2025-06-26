@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getDB } from "@/lib/duckdb";
+import { getDuckDB } from "@/lib/duckdb";
 
 export async function POST(request: NextRequest) {
   try {
     const { location, k = 5 } = await request.json();
-    const db = getDB();
+    const db = await getDuckDB();
 
     const rows = await new Promise<{ geojson: string }[]>((resolve, reject) => {
       db.all(
@@ -18,7 +18,7 @@ export async function POST(request: NextRequest) {
         LIMIT $2
         `,
         [JSON.stringify(location), k],
-        (err, _rows) => {
+        (err: any, _rows: any) => {
           if (err) return reject(err);
           resolve(_rows as any as { geojson: string }[]);
         }

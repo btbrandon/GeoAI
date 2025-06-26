@@ -1,22 +1,59 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# GeoAI MVP
 
-## Getting Started
+A Next.js application that combines interactive mapping with AI-powered spatial analysis using DuckDB and spatial extensions.
 
-First, run the development server:
+## Features
+
+- **Interactive Map**: Drop pins on the map to mark locations
+- **AI Chat Interface**: Ask natural language questions about spatial operations
+- **Spatial Operations**: Perform operations like buffering, nearest neighbors, and spatial queries
+- **Pin-based Analysis**: Use dropped pins as data points for spatial operations
+
+## How to Use
+
+### Basic Usage
+
+1. Drop pins on the map by clicking anywhere
+2. Use the "Undo" button to remove the latest pin
+3. Use the "Clear All" button to remove all pins
+4. Ask the AI assistant questions about spatial operations
+
+### Pin-based Spatial Operations
+
+When you have pins on the map, you can ask the AI to perform operations using those pins as data points:
+
+- **"Add a buffer of 10km around these features"** - Creates a buffer around all dropped pins
+- **"Create a 5km buffer around the pins"** - Buffers around pin locations
+- **"Buffer these points by 15 kilometers"** - Another way to request buffering
+
+The system will:
+
+1. Use your dropped pins as the input geometry
+2. Create buffers around each pin
+3. Union all buffers into a single polygon
+4. Display the result on the map in blue
+
+### Other Spatial Operations
+
+- **Within queries**: Find points within a certain distance of a location
+- **Nearest neighbors**: Find the k closest points to a location
+- **General buffering**: Create buffers around any geometry
+
+## Technical Details
+
+- **Frontend**: Next.js with TypeScript, Tailwind CSS, and DeckGL for mapping
+- **Backend**: Next.js API routes with DuckDB and spatial extensions
+- **AI**: OpenAI GPT-4.1-mini for natural language processing
+- **Spatial Engine**: DuckDB with spatial extensions for efficient spatial operations
+
+## Development
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
-
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+The application will be available at `http://localhost:3000`.
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
