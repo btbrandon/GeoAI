@@ -61,3 +61,16 @@ export interface ChatInterfacePropsWithUserMessage
   extends ExtendedChatInterfaceProps {
   onUserMessage?: (text: string) => void;
 }
+
+export interface StructuredChatInterfaceProps {
+  pins: Pin[];
+  referencePoint?: ReferencePoint | null;
+  onMapDataUpdate: (data: any) => void;
+  onSpatialOpUpdate: (op: string) => void;
+}
+
+export interface ChatMessage {
+  role: "user" | "assistant";
+  content: string;
+  timestamp: string;
+}

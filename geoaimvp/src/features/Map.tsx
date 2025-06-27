@@ -65,53 +65,60 @@ export default function MapComponent({
     mapData.features &&
     mapData.features.length > 0;
 
-  const withinPointIds = hasWithinResults
-    ? new Set(
-        mapData.features
-          .map(
-            (feature: {
-              type: string;
-              geometry?: { coordinates?: [number, number] };
-              coordinates?: [number, number];
-            }) => {
-              const coords =
-                feature.geometry?.coordinates ||
-                (feature.type === "Point" && Array.isArray(feature.coordinates)
-                  ? feature.coordinates
-                  : undefined);
+  const hasNearestResults = lastSpatialOp === "nearest" && hasWithinResults;
+  const hasWithinDistanceResults =
+    lastSpatialOp === "within" && hasWithinResults;
+  const hasBufferResults = lastSpatialOp === "buffer" && mapData;
 
-              if (!coords) {
-                console.warn("Feature missing coordinates:", feature);
-                return undefined;
-              }
+  const resultPointIds =
+    hasWithinDistanceResults || hasNearestResults
+      ? new Set(
+          mapData.features
+            .map(
+              (feature: {
+                type: string;
+                geometry?: { coordinates?: [number, number] };
+                coordinates?: [number, number];
+              }) => {
+                const coords =
+                  feature.geometry?.coordinates ||
+                  (feature.type === "Point" &&
+                  Array.isArray(feature.coordinates)
+                    ? feature.coordinates
+                    : undefined);
 
-              if (!Array.isArray(coords) || coords.length < 2) {
-                console.warn(
-                  "Feature has invalid coordinates format:",
-                  feature,
-                  "coords:",
-                  coords
+                if (!coords) {
+                  console.warn("Feature missing coordinates:", feature);
+                  return undefined;
+                }
+
+                if (!Array.isArray(coords) || coords.length < 2) {
+                  console.warn(
+                    "Feature has invalid coordinates format:",
+                    feature,
+                    "coords:",
+                    coords
+                  );
+                  return undefined;
+                }
+
+                const matchingPin = pins.find(
+                  (pin) =>
+                    Math.abs(pin.longitude - coords[0]) < 0.000001 &&
+                    Math.abs(pin.latitude - coords[1]) < 0.000001
                 );
-                return undefined;
-              }
 
-              const matchingPin = pins.find(
-                (pin) =>
-                  Math.abs(pin.longitude - coords[0]) < 0.000001 &&
-                  Math.abs(pin.latitude - coords[1]) < 0.000001
-              );
-
-              if (matchingPin) {
-                return matchingPin.id;
-              } else {
-                console.warn("No matching pin found for coords:", coords);
-                return undefined;
+                if (matchingPin) {
+                  return matchingPin.id;
+                } else {
+                  console.warn("No matching pin found for coords:", coords);
+                  return undefined;
+                }
               }
-            }
-          )
-          .filter(Boolean)
-      )
-    : new Set();
+            )
+            .filter(Boolean)
+        )
+      : new Set();
 
   const referencePoint = pins.length > 0 ? pins[pins.length - 1] : null;
   const dataPoints = pins.slice(0, -1);
@@ -137,12 +144,12 @@ export default function MapComponent({
       }
     : { type: "FeatureCollection", features: [] };
 
-  const withinPointsGeoJSON: FeatureCollection = {
+  const resultPointsGeoJSON: FeatureCollection = {
     type: "FeatureCollection",
     features: dataPoints
       .filter(
         (pin) =>
-          withinPointIds.has(pin.id) &&
+          resultPointIds.has(pin.id) &&
           Array.isArray(pin.coordinates) &&
           pin.coordinates.length === 2
       )
@@ -156,17 +163,17 @@ export default function MapComponent({
           id: pin.id,
           longitude: pin.longitude,
           latitude: pin.latitude,
-          type: "within",
+          type: lastSpatialOp === "nearest" ? "nearest" : "within",
         },
       })),
   };
 
-  const outsidePointsGeoJSON: FeatureCollection = {
+  const otherPointsGeoJSON: FeatureCollection = {
     type: "FeatureCollection",
     features: dataPoints
       .filter(
         (pin) =>
-          !withinPointIds.has(pin.id) &&
+          !resultPointIds.has(pin.id) &&
           Array.isArray(pin.coordinates) &&
           pin.coordinates.length === 2
       )
@@ -180,7 +187,7 @@ export default function MapComponent({
           id: pin.id,
           longitude: pin.longitude,
           latitude: pin.latitude,
-          type: "outside",
+          type: lastSpatialOp === "nearest" ? "not-nearest" : "outside",
         },
       })),
   };
@@ -213,24 +220,34 @@ export default function MapComponent({
       })
     : null;
 
-  // Within points layer (green)
-  const withinPointsLayer =
-    withinPointsGeoJSON.features.length > 0
+  const resultPointsLayer =
+    (hasWithinDistanceResults || hasNearestResults) &&
+    resultPointsGeoJSON.features.length > 0
       ? new GeoJsonLayer({
-          id: "within-points-layer",
-          data: withinPointsGeoJSON,
+          id: "result-points-layer",
+          data: resultPointsGeoJSON,
           stroked: false,
           filled: true,
           pointRadiusMinPixels: 8,
-          getFillColor: [0, 255, 0, 200],
+          getFillColor: (d) =>
+            d.properties.type === "nearest"
+              ? [0, 255, 0, 200]
+              : [0, 255, 0, 200],
           pickable: true,
           onClick: (info) => {
             if (info.object) {
               const pin = info.object as {
-                properties: { id: string; longitude: number; latitude: number };
+                properties: {
+                  id: string;
+                  longitude: number;
+                  latitude: number;
+                  type: string;
+                };
               };
               alert(
-                `Point within distance: ${
+                `Point ${
+                  pin.properties.type === "nearest" ? "Nearest" : "Within"
+                }: ${
                   pin.properties.id
                 }\nCoordinates: ${pin.properties.longitude.toFixed(
                   6
@@ -241,12 +258,12 @@ export default function MapComponent({
         })
       : null;
 
-  // Outside points layer (gray)
-  const outsidePointsLayer =
-    outsidePointsGeoJSON.features.length > 0
+  const otherPointsLayer =
+    (hasWithinDistanceResults || hasNearestResults) &&
+    otherPointsGeoJSON.features.length > 0
       ? new GeoJsonLayer({
-          id: "outside-points-layer",
-          data: outsidePointsGeoJSON,
+          id: "other-points-layer",
+          data: otherPointsGeoJSON,
           stroked: false,
           filled: true,
           pointRadiusMinPixels: 6,
@@ -255,10 +272,19 @@ export default function MapComponent({
           onClick: (info) => {
             if (info.object) {
               const pin = info.object as {
-                properties: { id: string; longitude: number; latitude: number };
+                properties: {
+                  id: string;
+                  longitude: number;
+                  latitude: number;
+                  type: string;
+                };
               };
               alert(
-                `Point outside distance: ${
+                `Point ${
+                  pin.properties.type === "not-nearest"
+                    ? "Outside"
+                    : "Not Nearest"
+                }: ${
                   pin.properties.id
                 }\nCoordinates: ${pin.properties.longitude.toFixed(
                   6
@@ -269,7 +295,6 @@ export default function MapComponent({
         })
       : null;
 
-  // Default pins layer (red) - only show when no "within" results
   const defaultPinsLayer =
     !hasWithinResults && pins.length > 0
       ? new GeoJsonLayer({
@@ -314,9 +339,9 @@ export default function MapComponent({
         })
       : null;
 
-  // Buffer/other map data layer (blue)
+  // Buffer/other map data layer (blue) - only for buffer operations
   const mapDataLayer =
-    mapData && !hasWithinResults
+    mapData && lastSpatialOp === "buffer"
       ? new GeoJsonLayer({
           id: "map-data-layer",
           data: mapData,
@@ -346,8 +371,8 @@ export default function MapComponent({
   const layers = [
     osmLayer,
     ...(referencePointLayer ? [referencePointLayer] : []),
-    ...(withinPointsLayer ? [withinPointsLayer] : []),
-    ...(outsidePointsLayer ? [outsidePointsLayer] : []),
+    ...(resultPointsLayer ? [resultPointsLayer] : []),
+    ...(otherPointsLayer ? [otherPointsLayer] : []),
     ...(defaultPinsLayer ? [defaultPinsLayer] : []),
     ...(mapDataLayer ? [mapDataLayer] : []),
   ];
@@ -456,9 +481,9 @@ export default function MapComponent({
                 ></div>
                 {lastSpatialOp === "nearest"
                   ? `Nearest Neighbour${
-                      withinPointIds.size === 1 ? "" : "s"
-                    } (${withinPointIds.size})`
-                  : `Within Distance (${withinPointIds.size})`}
+                      resultPointIds.size === 1 ? "" : "s"
+                    } (${resultPointIds.size})`
+                  : `Within Distance (${resultPointIds.size})`}
               </div>
               <div
                 style={{
@@ -476,7 +501,9 @@ export default function MapComponent({
                     marginRight: "5px",
                   }}
                 ></div>
-                Outside Distance
+                {lastSpatialOp === "nearest"
+                  ? "Not Nearest"
+                  : "Outside Distance"}
               </div>
             </div>
           )}
